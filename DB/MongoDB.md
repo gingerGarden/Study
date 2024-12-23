@@ -269,6 +269,8 @@ mongo_object = Collection.find({"field1":"value", "integer_field":{"$gt":150, "$
 ```
 * Mongo Object는 Iterator 처럼 next나 for로 값을 순서대로 꺼내올 수 있음
 
+<br>
+
 ```python
 # Collection에 Document 추가
 col.insert_one(Document)
