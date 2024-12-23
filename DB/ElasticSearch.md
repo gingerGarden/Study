@@ -174,7 +174,7 @@ __3.2. 단점__
 
 * 엘라스틱 서치와 RDBMS의 용어 대응
 
-|     ES    |   RDBMS   |
+|엘라스틱서치(ES)|관계형 데이터베이스(RDBMS)|
 |-----------|-----------|
 | Index     | Database  |
 | Shard     | Partition |
@@ -187,13 +187,20 @@ __3.2. 단점__
 
 * 엘라스틱서치의 HTTP 메서드와 RDBMS의 SQL 명령어의 대응
 
-| ES HTTP Method |   RDBMS SQL  |
+|ES HTTP 메서드|RDBMS SQL 명령어|
 |-----------|-----------|
 | GET       | SELECT |
 | PUT       | INSERT |
 | POST      | UPDATE, SELECT |
 | DELETE    | DELETE |
 | HEAD | (인덱스 정보 확인) |
+
+* 엘라스틱서치는 RESTful API를 통해 데이터 조작을 수행하며, HTTP 메서드를 사용하여 다양한 작업을 처리함
+> * GET 메서드는 데이터를 조회하는 데 사용되며, 이는 RDBMS의 SELECT 문과 유사함
+> * PUT 메서드는 새로운 문서를 추가하는 데 사용되며, 이는 INSERT 문과 대응됨
+> * POST 메서드는 기존 문서의 업데이트나 특정 쿼리 실행에 사용될 수 있음
+> * DELETE 메서드는 문서를 삭제하는 데 사용
+> * HEAD 메서드는 인덱스의 메타데이터를 확인하는 데 활용
 
 <br>
 <br>
