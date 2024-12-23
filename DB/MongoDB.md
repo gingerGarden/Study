@@ -186,3 +186,119 @@ $ mongo
 * 생성한 유저 목록은 use admin 상태에서 `show users`를 하면 볼 수 있음
 * DB 현황은 `show dbs`를 하면 볼 수 있음
 * 생성된 유저 목록은 admin DB에 생성되므로, 컨테이너를 제거해도 서버에 연결된 공간에 정보가 남아 있음
+
+<br>
+<br>
+<br>
+<br>
+
+## __3. 기본적인 MongoDB 문법__
+
+__3.1. MongoDB 연결__
+* python에서 MongoDB 조작
+
+```python
+import pymongo
+
+# MongoDB 연결은 Host IP와 Port 번호만 있으면 접속 가능
+conn = pymongo.MongoClient(HOST_IP, PORT)
+
+# Auth가 설정되지 않은 상태에서 접속 방법
+conn = pymongo.MongoClient(f"mongodb://{HOST_IP}:{PORT}")
+
+# Auth가 설정된 상태에서 접속 방법
+conn = pymongo.MongoClient(f"mongodb://{USER_ID}:{PASSWORD}@{HOST_IP}:{PORT}")
+
+# MongoDB 연결 해제
+conn.close()
+```
+
+* MongoDB의 보안
+> * MongoDB는 기본적으로 보안 관련 설정이 없으므로 Auth 설정을 하지 않으면, 단순히 위 방법만으로 설정 가능
+> * 그러나, 추후 보안을 위해 MongoDB에 Auth 설정을 한다면 다른 방식으로 해야함.
+
+<br>
+<br>
+
+__3.2. DB, Collection, Document 조회__
+* DB 조작
+```python
+# MongoDB의 목록 조회
+conn.list_database_names()
+
+# DB 연결(존재하지 않는 경우 생성)
+db = conn.DB_name                  # 속성 접근 방식
+db = conn.get_database("DB_name")  # 메서드 접근 방식
+
+# DB 제거
+conn.drop_database("DB")
+```
+<br>
+
+* Collection 조작
+```python
+# DB내 Collection 목록 조회
+db.list_collection_names()
+
+# Collection 연결(존재하지 않는 경우 생성)
+col = db.Collection_name                      # 속성 접근 방식
+col = conn.get_collection("Collection_name")  # 메서드 접근 방식
+
+# Collection 제거
+# 특정 Collection 제거
+db.drop_collection("Collection_name")
+# 해당 Collection 제거
+col.drop()
+```
+
+<br>
+
+* Document 조작
+```python
+# Collection 내 모든 Document 조회
+mongo_object = collection.find({})
+
+# Collection 내 특정 Field에 해당 값을 가진 Document만 조회
+mongo_object = collenction.find({"field1":"value1"})
+
+# Collection 내 특정 Field에 해당하는 값을 가진 Document에서 특정 Field 값만 조회
+mongo_object = collection.find({"field1":"value1"}, {"field2":"value2"})
+
+# 연속형 데이터를 범위 설정하여 조회
+mongo_object = Collection.find({"field1":"value", "integer_field":{"$gt":150, "$lte":200}})
+```
+* Mongo Object는 Iterator 처럼 next나 for로 값을 순서대로 꺼내올 수 있음
+
+```python
+# Collection에 Document 추가
+col.insert_one(Document)
+
+# 조건에 맞는 Document 제거
+col.delete_one({"field1":"value1"})      # 위에서부터 하나씩 제거
+col.delete_many({"field1":"value1"})     # 해당 Document를 한번에 모두 제거
+```
+
+<br>
+<br>
+<br>
+<br>
+
+## __4. 고차원 Numpy Array 저장__
+
+__4.1. Bytes object로 저장__
+* MongoDB는 숫자형 타입에 대해 int32, int64, float64, float128을 지원하며, 기본으로 int64로 저장
+* 이미지 데이터 같은 고차원 array는 MongoDB에 저장이 어려우며 이를 list로 저장하는 경우, int64로 저장되므로 용량이 지나치게 큼
+* 데이터 크기를 최적화한 Python 객체를 그대로 MongoDB에 업로드하고자 하는 경우, 이 Python 객체를 Pickle을 이용해 직렬화하여 Bytes 객체로 저장하고, 이를 BSON의 Binary 기능으로 이진화하여 MongoDB에 업로드 시, 데이터 전송 속도를 매우 빠르게 할 수 있음
+```python
+import bson
+import pickle
+
+# 1. Python 객체를 Bytes 객체로 변환
+bytes_object = pickle.dumps(data, protocol=5)    # python 3.8은 protocol 5
+
+# 2. Bytes 객체 이진화
+bson.binary.Binary(bytes_object)
+
+# Bytes 객체 Python 객체로 원상 복구
+pickle.loads(bytes_object)
+```
