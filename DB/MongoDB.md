@@ -1,6 +1,6 @@
 # MongoDB
 
-### 1. __MongoDB의 개요__
+## __1. MongoDB의 개요__
 __1.1. MongoDB를 포함한 NoSQL의 장점__
 * 불필요한 Join의 최소화
 * 유연성 있는 서버 구조 제공
@@ -109,3 +109,80 @@ __1.7. MongoDB의 중첩 문서__
   },
   "type": "cat"
 }
+```
+
+<br>
+<br>
+<br>
+<br>
+
+## __2. Docker로 MongoDB 설치하기__
+
+__2.1. MongoDB 이미지 설치__
+* docker 설치 및 환경 구축 생략
+* docker pull로 최신 mongoDB 이미지를 다운로드
+> * `$ docker pull mongo`
+* MongoDB docker 컨테이너 생성 및 실행
+
+``` bash
+docker run \
+  --name mongodb \
+  -d \
+  -p 27017:27017 \
+  -v /data4/MongoDB:/data/db \
+  -e MONGO_INITDB_ROOT_USERNAME=root \
+  -e MONGO_INITDB_ROOT_PASSWORD=myPassword \
+  mongo
+```
+
+<br>
+<br>
+
+__2.2. MongoDB에 유저 추가하기__
+* MongoDB Docker 컨테이너 접속
+> * `docker exec -it mongodb /bin/bash`
+* MongoDB root 계정으로 DB 접속
+> * `mongo -u root -p myPassword`
+* admin 위치에 생성
+> * `use admin`
+* 관리자 계정 생성
+> * 모든 DB의 관리자 권한을 갖는 계정 추가
+
+```bash
+$ mongo
+  \> db.createUser({
+      user: "admin",
+      pwd: "AjouCancer21!",
+      roles: [{
+        role: "userAdminAnyDatabase",
+        db: "admin"
+      }]
+     })
+```
+* 읽기와 쓰기만 가능한 이용자 계정 추가 방법
+```bash
+$ mongo
+  \> db.createUser({
+      user: "user0",
+      pwd: "user0",
+      roles: [{
+        role: "readWrite",
+        db: "dbname"
+      }]
+    })
+```
+* 읽기만 가능한 이용자 계정 추가 방법
+```bash
+$ mongo
+  \> db.createUser({
+      user: "user1",
+      pwd: "user1",
+      roles: [{
+        role: "read",
+        db: "dbname"
+      }]
+    })
+```
+* 생성한 유저 목록은 use admin 상태에서 `show users`를 하면 볼 수 있음
+* DB 현황은 `show dbs`를 하면 볼 수 있음
+* 생성된 유저 목록은 admin DB에 생성되므로, 컨테이너를 제거해도 서버에 연결된 공간에 정보가 남아 있음
