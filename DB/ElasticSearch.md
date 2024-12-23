@@ -6,7 +6,7 @@
 * 엘라스틱 서치는 2016년 무렵부터 검색 엔진 순위 트랜드 1위를 하고 있을 정도로 많이 사용
 > * 출처: https://db-engines.com/en/ranking_trend/search+engine
 
-![이미지 1](./images/ElasticS_서치엔진_순위_트렌드.png)
+![이미지 1](./images/ElasticS_서치엔진_순위_트렌드.jpeg)
 
 <br>
 
