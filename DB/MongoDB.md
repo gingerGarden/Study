@@ -17,6 +17,7 @@
 * Column: Hbase, Casandra
 * Document: MongoDB
 * Graph: GraphDB
+
 |Relation DB|NoSQL|
 |----|----|
 |Scalue-up: 서버 한대 중심으로 확장|Scale-out: 여러 대의 서버를 중심으로 확장|
