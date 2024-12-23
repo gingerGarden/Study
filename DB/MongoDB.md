@@ -254,6 +254,7 @@ col.drop()
 <br>
 
 * Document 조작
+> * Mongo Object는 Iterator 처럼 next나 for로 값을 순서대로 꺼내올 수 있음
 ```python
 # Collection 내 모든 Document 조회
 mongo_object = collection.find({})
@@ -267,7 +268,6 @@ mongo_object = collection.find({"field1":"value1"}, {"field2":"value2"})
 # 연속형 데이터를 범위 설정하여 조회
 mongo_object = Collection.find({"field1":"value", "integer_field":{"$gt":150, "$lte":200}})
 ```
-* Mongo Object는 Iterator 처럼 next나 for로 값을 순서대로 꺼내올 수 있음
 
 <br>
 
