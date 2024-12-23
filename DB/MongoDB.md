@@ -1,7 +1,7 @@
 # MongoDB
 
 ### 1. __MongoDB의 개요__
-1.1. MongoDB를 포함한 NoSQL의 장점
+__1.1. MongoDB를 포함한 NoSQL의 장점__
 * 불필요한 Join의 최소화
 * 유연성 있는 서버 구조 제공
 * 비정형 데이터 구조로 설계 비용 감소
@@ -11,8 +11,9 @@
 > * 비정형 데이터로 인해 관계형 DB보다 1.5배 용량을 더 많이 차지
 
 <br>
+<br>
 
-1.2. NoSQL의 종류
+__1.2. NoSQL의 종류__
 * Key-Value: Redis, Memcached
 * Column: Hbase, Casandra
 * Document: MongoDB
@@ -26,8 +27,9 @@
 |트랜잭션|빠른 쓰기, 읽기|
 
 <br>
+<br>
 
-1.3. MongoDB의 특징
+__1.3. MongoDB의 특징__
 * MongoDB는 NoSQL로 분류되는 크로스 플랫폼 도큐먼트 지향 데이터베이스 시스템이다.
 * 이름의 Mongo는 humongous의 줄인 말로, "엄청나게 큰 DB"라는 뜻이다.
 * Json 타입의 Document 방식의 NoSQL이다.
@@ -42,8 +44,9 @@
 > * 그러나, 저장하는 데이터가 은행 데이터 같이 일관성(Consistency)이 매우 중요한 경우, MongoDB를 쓰기 매우 힘들다
 
 <br>
+<br>
 
-1.4. MongoDB의 구조
+__1.4. MongoDB의 구조__
 * 관계형 DB와 MongoDB의 논리적 구조 비교
 
 |Relational Database|MongoDB|
@@ -66,16 +69,18 @@
 ![이미지 1](./images/MongoDB_instance.png)
 
 <br>
+<br>
 
-1.5. MongoDB의 ID 필드
+__1.5. MongoDB의 ID 필드__
 * 관계형 DB의 기본 키(Primary key) 개념은, 합성 ID 열, 즉 비즈니스 데이터와 관계되지 않고 생성된 값임
 * MongoDB는 비슷한 목적으로 모든 Document에 *_id* 필드가 있음
 * 개발자가 Document를 만들 때, ID를 별도로 제공하지 않는 경우, MongoDB 엔진이 UUID로 자동 생성
 * *_id* 필드는 기본 키와 마찬가지로 자동으로 인덱싱되며, 고유해야함
 
 <br>
+<br>
 
-1.6. MongoDB의 인덱싱
+__1.6. MongoDB의 인덱싱__
 * MongoDB의 인덱싱은 관계형 DB의 인덱싱과 유사
 * 문서의 필드에 대한 부가적인 데이터를 생성해 이 필드에 의존하는 조회의 속도를 높임
 * MongoDB는 B-Tree 인덱스 사용
@@ -84,8 +89,9 @@
 > * 매개변수의 정수는 인덱스가 오름차순(1)인지 내림차순(-1)인지 나타냄
 
 <br>
+<br>
 
-1.7. MongoDB의 중첩 문서
+__1.7. MongoDB의 중첩 문서__
 
 ![이미지 2](./images/MongoDB_document.png)
 
