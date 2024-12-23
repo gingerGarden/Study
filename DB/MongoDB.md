@@ -45,6 +45,7 @@
 
 1.4. MongoDB의 구조
 * 관계형 DB와 MongoDB의 논리적 구조 비교
+
 |Relational Database|MongoDB|
 |----|----|
 |Table|Collection|
