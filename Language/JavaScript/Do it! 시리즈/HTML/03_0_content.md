@@ -101,13 +101,13 @@
 
 |종류|설명|예시|
 |----|----|----|
-|<abbr>|줄임말을 표시, title 속성을 함께 사용해 줄이기 전의 텍스트 지정|<abbr title="Artificial Intelligence>AI</abbr>|
-|<code>|소스 코드를 표시|<code>push()</code> 함수|
-|<del>|문서에서 삭제된 텍스트|<del>삭제된 내용</del>|
-|<ins>|문서에 추가된 텍스트|<ins>추가된 내용</ins>|
-|<mark>|태그를 적용한 부분에 하이라이트 표시|<p>껍질에 붉은빛이 돌아 <mark>레드향</mark>이라 불린다.</p>|
-|<small>|덧붙이는 글이나 저작권 등 부가 정보를 작게 표시할 때 사용|<p>가격: 13,000원<small>(부가세 별도)</small></p>|
-|<sub>|아래첨자 표시|<p>물의 화학식은 H<sub>2</sub>O입니다</p>|
-|<sup>|위첨자 표시|<p>E = mc<sup>2</sup></p>|
+|`<abbr>`|줄임말을 표시, title 속성을 함께 사용해 줄이기 전의 텍스트 지정|`<abbr title="Artificial Intelligence>AI</abbr>`|
+|`<code>`|소스 코드를 표시|`<code>push()</code> 함수`|
+|`<del>`|문서에서 삭제된 텍스트|`<del>삭제된 내용</del>`|
+|`<ins>`|문서에 추가된 텍스트|`<ins>추가된 내용</ins>`|
+|`<mark>`|태그를 적용한 부분에 하이라이트 표시|`<p>껍질에 붉은빛이 돌아 <mark>레드향</mark>이라 불린다.</p>`|
+|`<small>`|덧붙이는 글이나 저작권 등 부가 정보를 작게 표시할 때 사용|`<p>가격: 13,000원<small>(부가세 별도)</small></p>`|
+|`<sub>`|아래첨자 표시|`<p>물의 화학식은 H<sub>2</sub>O입니다</p>`|
+|`<sup>`|위첨자 표시|`<p>E = mc<sup>2</sup></p>`|
 
 
