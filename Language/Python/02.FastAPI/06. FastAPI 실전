@@ -1,1 +1,101 @@
 ## 6. FastAPI 실전
+
+<br>
+
+### A. FastAPI가 하는 일은?
+
+```
+정해진 URL로 요청이 오면, 내가 정의한 방식대로 응답을 돌려준다
+```
+1. 정해진 것만 출력하는 API
+2. 무언가를 입력받아서 결과를 출력하는 API
+3. 무언가를 입력만 받는 API (결과 없음 or 저장만 함)
+
+<br>
+<br>
+
+#### 1. 정해진 것만 출력하는 API
+* 단순 메시지 반환
+* 데이터베이스/입력 없음
+
+<br>
+
+```python
+@app.get("/")
+def read_root():
+    return {"message":"Hello, World!"}
+```
+
+<br>
+
+* 접속: `GET /`
+* 출력: `{"message":"Hello, World!"}`
+
+<br>
+<br>
+
+#### 2. 무언가를 입력받아서 결과를 출력하는 API
+* 클라이언트가 준 입력을 받아서
+* 처리한 결과를 응답으로 돌려줌
+
+<br>
+
+```python
+from pydantic import BaseModel
+
+class Item(BaseModel):
+    name: str
+    price: float
+
+@app.post("/item")
+def process_item(item: Item):
+    return {"total_price": item.price * 1.1}
+```
+
+<br>
+
+* 접속: `POST /item`
+* 입력:
+```json
+{"name":"apple", "price":1000}
+```
+* 출력:
+```json
+{"total_price": 1100.0}
+```
+
+<br>
+<br>
+
+#### 3. 무언가를 입력만 받는 API (결과 없음 or 저장만 함)
+* 입력만 받고 응답은 필요 없는 경우
+* 예: DB에 저장만 하고 "200 OK"만 반환
+
+```python
+@app.post("/log")
+def log_data(data: dict):
+    # 예: DB에 저장
+    print(data)
+    return {"status": "received"}
+```
+
+* 입력:
+```json
+{"event": "button_clicked"}
+```
+
+* 출력
+```json
+{"status": "received"}
+```
+
+<br>
+<br>
+
+#### 4. 정리
+
+| 유형| 설명| 예시|
+| --- | --- | --- |
+| 정해진 것만 출력 | 고정된 응답을 돌려줌  | 서버 상태 확인, 버전 반환 |
+| 입력 받고 응답  | 계산, 처리 결과 반환 | 계산기, 챗봇|
+| 입력만 받고 저장 | 로깅, DB 저장 등  | 로그 수집기, 피드백 저장  |
