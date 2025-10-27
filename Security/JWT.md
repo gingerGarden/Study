@@ -1,0 +1,951 @@
+# 4. 비동기 처리와 I/O 최적화
+* FastAPI는 기본적으로 **비동기(Async)** 지원 → 높은 동시성 처리 가능
+
+* Python `async`/`await` 문법으로 코루틴 작성
+* 외부 API 호출, DB 쿼리, 파일 입출력 등 I/O 작업에서 효과적
+
+<br>
+<br>
+<br>
+<br>
+
+## A. 동기(Sync) vs 비동기(Async)
+```md
+동기 vs 비동기 핵심: 동기는 요청마다 대기 → 비동기는 대기 중 다른 요청 처리
+```
+
+* **동기 방식**: 외부 API가 응답할 때까지 멍하니 기다림 → 다른 요청도 줄줄이 대기
+
+* **비동기 방식**: 외부 API 1초 대기 중에도 나머지 99개 요청 쭉쭉 처리
+
+| 구분| 동기(Sync)| 비동기(Async)|
+| --- | --- | --- |
+| 처리 방식| 하나 끝나야 다음 처리| I/O 대기 중 다른 요청도 병렬 처리 가능|
+| 병렬 처리| ❌ 순차 처리| ✅ 이벤트 루프 기반 동시 처리|
+| CPU 작업| 빠름| 빠름 (단, CPU 바운드 작업은 효과 ↓) |
+| I/O 작업| 느림 (대기 시간 낭비)| 빠름 (대기 시간 동안 다른 요청 처리)|
+| 실전 예시| 파일 읽기, 외부 API 호출 → 대기 | 외부 API 호출 대기 중 다른 요청 처리|
+
+<br>
+<br>
+
+### A-1. 비유: 멍청한 요리사 vs 스마트 요리사
+* 동기 방식(멍청한 요리사)
+```md
+1. 물 끓이기 시작 → 끓을 때까지 멍하니 서 있음 (5분)
+2. 면 삶기 시작 → 익을 때까지 또 멍 (8분)
+3. 토스트 굽기 시작 → 빵 구울 때까지 멍 (2분)
+✔ 총 시간: 15분
+```
+
+<br>
+
+* 비동기 방식(스마트 요리사)
+```md
+1. 물 끓이기 시작 → 그 사이 토스트 굽기
+2. 토스트 굽는 동안 채소 손질
+3. 물 끓으면 면 삶기, 빵 굽기 완료되면 꺼냄
+✔ 총 시간: 약 10분 (대기 시간 100% 활용)
+```
+
+<br>
+<br>
+
+### A-2. 비동기가 효과 없는 경우
+
+| 상황| 비동기 효과 | 대안|
+| --- | --- | --- |
+| 순수 CPU 연산 (이미지 처리 등) | ❌ 없음| ✅ `ProcessPoolExecutor` 사용 |
+| 외부 라이브러리가 동기만 지원| ❌ 없음| ✅ 비동기 대응 라이브러리로 교체|
+| 대용량 파일 처리 (싱글 프로세스)| ❌ 제한적| ✅ `aiofiles` + 분산 처리 조합|
+
+<br>
+<br>
+<br>
+<br>
+
+## B. 코루틴(Coroutine)
+```
+실행을 중간에 멈추고 다른 작업을 하다가, 다시 돌아와서 멈춘 부분부터 이어서 실행할 수 있는 특별한 함수
+```
+* 하나의 작업(Thread) 안에서 여러 작업을 전환(Context Switching)
+
+* "기다리는 시간"”"을 낭비하지 않고 다른 일을 처리 → 프로그램 전체 효율 극대화
+
+<br>
+<br>
+
+### B-1. 개념 비교: 일반 함수 vs 코루틴
+* 일반 함수 (동기 방식) - 멍하니 기다리는 요리사
+```md
+1. 파스타 물 끓이기 시작 → 물이 끓을 때까지 기다림 (5분 소요)
+
+2. 면을 삶기 시작 → 면이 익을 때까지 기다림 (8분 소요)
+
+3. 토스트 시작 → 빵이 구워질 때까지 기다림 (2분 소요)
+
+   ✔ 총 소요 시간: 15분 (기다림 100% 낭비)
+```
+
+<br>
+
+* 코루틴 (비동기 방식) - 스마트한 요리사
+```md
+1. 파스타 물을 끓이기 시작 → 물이 끓는 동안 토스트 작업 시작
+
+2. 토스트 굽는 동안 → 채소 손질 등 다른 작업
+
+3. 이벤트(알림)가 오면 → 멈췄던 작업 재개
+
+   ✔ 총 소요 시간: 약 10분 (I/O 대기 시간 100% 활용)
+```
+
+<br>
+<br>
+
+### B-2. 코루틴의 핵심 특징
+* **협력적 멀티태스킹**
+> * 스스로 *“나 이제 기다려야 하니, 다른 일 먼저 하세요”* 라고 제어권을 양보(`await`).
+> * 운영체제가 강제로 멈추는 **스레드(Thread)** 와 다름
+
+* **단일 스레드 기반**
+> * 여러 스레드를 만들지 않고, 하나의 스레드 안에서 여러 작업을 번갈아 처리
+> * 이 덕분에 스레드 간의 복잡한 동기화 문제(**Race Condition**, **Deadlock**)에서 비교적 자유로움
+
+* **상태 저장**
+> * 실행을 멈출 때 자신이 어디까지 실행했는지, 변수들의 상태는 어땠는지를 모두 기억
+> * 나중에 돌아왔을 때 정확히 그 지점부터 다시 시작할 수 있음
+
+* **이벤트 루프**
+> 어떤 코루틴을 실행할지, 어떤 작업이 끝났는지를 관리하는 **“매니저”** 역할을 하는 이벤트 루프 존재
+
+<br>
+<br>
+
+### B-3. 코루틴 vs 스레드 (실무 관점 중요!)
+
+* 스레드: OS 레벨, 강제 스위칭, 자원 소모 큼 → CPU 바운드에 강함
+
+* 코루틴: Python 레벨, 자발적 양보, 자원 소모 적음 → I/O 바운드에 강함
+
+| 구분| **코루틴 (Coroutine)**| **스레드 (Thread)**|
+| --- | --- | --- |
+| **제어 주체**  | 프로그램 (자발적 양보)| 운영체제 (강제 중단/재개)|
+| **동시성 방식** | 협력적 멀티태스킹 (Cooperative)| 선점형 멀티태스킹 (Preemptive)|
+| **자원 소모**  | 매우 가벼움 (함수 호출과 유사)| 무거움 (독립적인 메모리 스택 필요, 컨텍스트 스위칭 비용 큼)|
+| **동기화 문제** | 거의 없음 (단일 스레드 기반)| 많음 (락(Lock), 세마포어 등 공유 자원 접근 제어 필요)|
+| **최적의 작업** | **I/O 바운드 작업** (네트워크, DB 조회 등 대기 많은 작업에 강함) | **CPU 바운드 작업** (수학 계산, 이미지 처리 등 연산 많은 작업에 강함) |
+
+```md
+💡 코루틴은 컨텍스트 스위칭 비용이 함수 호출 수준(몇 ns)이며,
+스레드는 OS 스케줄링으로 수 µs~ms 단위 → 수천 개의 코루틴을 띄워도 부담 적음.
+```
+
+<br>
+<br>
+
+### B-4 예제
+
+```python
+import asyncio
+import time
+
+async def make_pasta():
+    print("🍝 파스타: 물을 끓이기 시작합니다.")
+    await asyncio.sleep(3)  # I/O 작업 대기 시뮬레이션
+    print("🍝 파스타: 면을 삶기 시작합니다.")
+    await asyncio.sleep(5)
+    print("✅ 파스타 완성!")
+    return "파스타"
+
+async def make_toast():
+    print("🍞 토스트: 빵을 굽기 시작합니다.")
+    await asyncio.sleep(2)  # I/O 작업 대기 시뮬레이션
+    print("✅ 토스트 완성!")
+    return "토스트"
+
+async def main():
+    start_time = time.time()
+
+    # 두 코루틴 병렬 실행
+    results = await asyncio.gather(
+        make_pasta(),
+        make_toast()
+    )
+
+    end_time = time.time()
+    print(
+        f"🍽️요리 결과: {results}\n",
+        f"⏱️ 총 걸린 시간: {end_time - start_time:.2f}초"
+        )
+
+asyncio.run(main())
+```
+
+* 실행 결과
+
+```bash
+🍝 파스타: 물을 끓이기 시작합니다.
+🍞 토스트: 빵을 굽기 시작합니다.
+✅ 토스트 완성!
+🍝 파스타: 면을 삶기 시작합니다.
+✅ 파스타 완성!
+
+🍽️ 요리 결과: ['파스타', '토스트']
+⏱️ 총 걸린 시간: 8.01초
+```
+
+<br>
+<br>
+
+### B-5. 핵심 요약
+
+| 항목| 설명|
+| --- | --- |
+| 🧵 스레드| OS 레벨 스케줄링 → 강제 스위칭, 자원 소모 큼 |
+| 🔄 코루틴| Python 레벨 스케줄링 → 자발적 양보, 가벼움 |
+| 🏃‍♂️ 최적 용도 | 코루틴: I/O 바운드 / 스레드: CPU 바운드  |
+
+<br>
+<br>
+<br>
+<br>
+
+## C. 이벤트 루프 (Event Loop)
+* 코루틴이 스스로 멈출 수 있는 똑똑한 요리사라면
+
+* 이벤트 루프는 어떤 요리사에게 무슨 일을 시킬지, 언제 다음 작업을 시작할지 결정하는 레스토랑의 총괄 매니저임
+
+```md
+⚡ FastAPI는 Uvicorn(ASGI) 서버 위에서 동작하며, 이 이벤트 루프를 통해
+각 요청을 코루틴으로 처리 → 수천 동시 요청도 효율적
+```
+
+<br>
+<br>
+
+### C-1. 레스토랑 비유 (비동기 세계 입문)
+
+| 요소| 비유|
+| --- | --- |
+| 이벤트 루프  | 👨‍💼 총괄 매니저|s
+| 코루틴/태스크 | 👨‍🍳 여러 명의 요리사|
+| `await`| "매니저님, 5분 대기 필요!" 보고 |
+| I/O 작업| 오븐 예열, 물 끓이기 등|
+| 이벤트| "삐-!" 오븐 완료 알림|
+
+<br>
+
+* 매니저 (이벤트 루프)는 요리사가 대기 중이면
+> * 세워두지 않고
+> * 다른 요리사에게 즉시 다른 일을 시킴
+>> * 주방 효율 극대화
+
+<br>
+<br>
+
+### C-2. 이벤트 루프의 실제 동작 (단계별 심층 설명)
+
+```lua
++-------------------------------+
+|        이벤트 루프(매니저)       |
+| [할 일 목록: Task A, Task B]   |
++-------------------------------+
+           | 1. Task A 실행
+           ▼
+     +-----------+
+     |  Task A   |
+     | await 3초 |
+     +-----------+
+           |
+           | 제어권 양보
+           ▼
++-------------------------------+
+| 이벤트 루프(Task A 대기 중)      |
+| [할 일 목록: Task B]           |
++-------------------------------+
+           | 2. Task B 실행
+           ▼
+     +-----------+
+     |  Task B   |
+     +-----------+
+           |
+           | (3초 후 이벤트 발생)
+           ▼
++-------------------------------+
+| 이벤트 루프(Task A 실행 가능)    |
++-------------------------------+
+           | 3. Task A 재개
+           ▼
+     +-----------+
+     |  Task A   |
+     +-----------+
+
+
+[New] → [Ready] → [Running] → [Waiting]
+                         ↑         ↓
+                      [Finished] ← [Event Trigger]
+```
+
+<br>
+
+#### 1. 태스크(Task) 등록
+
+```python
+asyncio.run(main())  # 루프 생성 및 main 등록
+```
+* `main()` 코루틴이 이벤트 루프의 "할 일 목록"에 추가됨
+
+* `asyncio.gather()` → 여러 태스크 동시 등록
+
+<br>
+
+#### 2. 태스크 실행
+* 루프는 등록된 태스크를 하나 선택해 실행 시작
+
+<br>
+
+#### 3. `await` 만나기 (제어권 양보)
+
+```python
+await asyncio.sleep(3)
+```
+
+* 태스크는 "3초 후 다시 불러주세요" 라고 매니저에게 요청
+
+* 제어권을 이벤트 루프에 반환 → 루프는 대기 중 태스크를 "멈춤 상태"로 관리
+
+<br>
+
+#### 4. 다른 태스크 실행 (컨텍스트 스위칭)
+* 루프는 대기 중인 Task A를 건너뛰고 Task B 실행 시작
+
+* **이 방식이 비동기 프로그래밍의 핵심**
+
+<br>
+
+#### 5. 이벤트 발생 및 태스크 재개
+* 3초 후 `sleep(3)` 완료 → 이벤트 루프가 이벤트 감지
+
+* Task A를 다시 실행 가능한 상태로 전환
+
+<br>
+
+#### 6. 모든 태스크 완료 시 종료
+* "할 일 목록" 비면 이벤트 루프 종료
+
+```python
+# asyncio.run() 내부적으로 루프 종료 처리
+```
+
+<br>
+<br>
+
+
+### C-3. 이벤트 루프 vs 스레드 풀 (비교)
+
+| 항목| 이벤트 루프| 스레드 풀|
+| --- | ---- | --- |
+| 동작 방식| 협력적 멀티태스킹 (코루틴 제어권 양보) | 선점형 멀티태스킹 (OS가 스레드 스케줄링) |
+| 컨텍스트 스위칭 비용 | 매우 낮음 (함수 호출 수준)| 높음 (스택/레지스터 저장 필요)|
+| 최적 작업| I/O 바운드 (네트워크, DB)| CPU 바운드 (이미지 처리, 연산)|
+
+<br>
+<br>
+
+### C-4. 실전 디버깅 팁 (실무자 관점)
+
+* 이벤트 루프는 기본적으로 단일 스레드 → CPU 연산 집중 작업 시 병목 발생
+
+* I/O 작업 중 block 발생하면 await로 비동기 처리 여부 확인
+* 긴 CPU 연산은 멀티프로세싱(ProcessPoolExecutor) 고려
+
+* Blocking 코드 주의
+
+```md
+❗ 이벤트 루프 안에서 동기 함수(time.sleep 등) 호출 시 전체 루프 block
+✅ 반드시 asyncio.sleep, httpx.AsyncClient 등 비동기 라이브러리 사용
+```
+
+<br>
+<br>
+
+### C-5. 핵심 요약
+
+* 이벤트 루프 = 비동기 지휘자
+
+* 코루틴 = 비동기 태스크
+
+* await = "양보" 신호
+
+* I/O 대기 시간을 활용해 다수의 태스크를 동시에 관리
+
+<br>
+<br>
+<br>
+<br>
+
+## D. FastAPI의 비동기 처리
+
+* ASGI 서버(Uvicorn) → 비동기 요청 처리 최적화
+* Starlette 기반 → 미들웨어부터 WebSocket까지 비동기 지원
+* `async def` 엔드포인트 → 요청 처리 중 다른 요청 수용 가능
+
+* **동기 함수 (`def`)**: FastAPI는 동기 함수를 별도의 **스레드 풀**에서 실행하여 메인 이벤트 루프가 차단되는 것을 방지합니다. 하지만 스레드 간의 컨텍스트 스위칭 비용이 발생할 수 있습니다.
+
+* **비동기 함수 (`async def`)**: 이벤트 루프에서 직접 실행되며, `await` 키워드로 I/O 작업을 논블로킹 처리하여 높은 동시성을 제공합니다.
+
+<br>
+
+#### 1. 동기 vs 비동기 요청 타임라인
+
+```text
+[Sync] 요청 처리 흐름
+요청 1 ──▶ 처리 (3초)
+요청 2 ──────────▶ 처리 (3초)
+요청 3 ──────────────────▶ 처리 (3초)
+총 소요: 9초
+
+[Async] 요청 처리 흐름
+요청 1 ──▶ 처리 (동시)
+요청 2 ──▶ 처리 (동시)
+요청 3 ──▶ 처리 (동시)
+총 소요: 3초
+```
+
+<br>
+
+* 비동기 흐름 핵심
+
+```md
+1. 요청 들어옴 → 이벤트 루프 Ready Queue 등록
+2. await 만나면 → Waiting Queue로 이동
+3. I/O 완료 알림 → Ready Queue 재등록
+4. 다음 실행 가능한 코루틴부터 처리
+```
+
+<br>
+
+#### 2. 언제 어떤 방식을 사용할까?
+* **`async def` (비동기)**
+
+  * **I/O 바운드 작업**에 사용합니다. (예: 외부 API 호출, DB 쿼리, 파일 읽기/쓰기)
+  * I/O 대기 시간 동안 다른 요청을 처리할 수 있어 전체 처리량이 극대화됩니다.
+
+* **`def` (동기)**
+  * **CPU 바운드 작업**에 사용을 고려할 수 있습니다. (예: 복잡한 수학 연산, 이미지 처리)
+  * FastAPI가 스레드 풀에서 실행하므로 이벤트 루프를 직접 차단하지는 않지만, 진정한 병렬 처리를 위해서는 멀티프로세싱(`ProcessPoolExecutor`)을 함께 사용하는 것이 효과적입니다.
+
+```md
+# 스레드풀과 이벤트 루프 차이
+* 스레드 풀(ThreadPool): 블로킹 코드를 피하기 위한 우회
+* 이벤트 루프(Event Loop): I/O 대기 시간을 최대한 활용
+```
+
+<br>
+<br>
+
+### D-1. 코드 예시 및 성능 비교
+
+#### 1. 동기(Sync) 엔드포인트
+* `time.sleep(3)`으로 3초간 블로킹되는 상황을 시뮬레이션합니다.
+* 10개의 요청이 동시에 들어오면, 각 요청이 순차적으로 처리되어 약 30초가 소요됩니다.
+
+```python
+import time
+from fastapi import FastAPI
+
+app = FastAPI()
+
+# 동기 함수 (별도 스레드에서 실행됨)
+@app.get("/sync")
+def sync_task():
+    time.sleep(3)  # 3초간 블로킹
+    return {"result": "sync task complete"}
+```
+
+<br>
+
+#### 2. 비동기(Async) 엔드포인트
+* `asyncio.sleep(3)`으로 3초간 논블로킹 대기합니다.
+* 10개의 요청이 동시에 들어와도, 대기 시간 동안 다른 요청을 함께 처리하여 약 3초 만에 완료됩니다.
+
+```python
+import asyncio
+from fastapi import FastAPI
+
+app = FastAPI()
+
+# 비동기 함수 (이벤트 루프에서 직접 실행됨)
+@app.get("/async")
+async def async_task():
+    await asyncio.sleep(3)  # 3초간 논블로킹
+    return {"result": "async task complete"}
+```
+
+<br>
+
+#### 3. 성능 비교표
+
+| 요청 수 | 동기(Sync) 처리 시간 | 비동기(Async) 처리 시간 |
+| --- | --- | --- |
+| 1개| 3초| 3초|
+| 10개| 🐢 30초| 🚀 약 3초|
+| 100개| 🐢 5분↑| 🚀 약 3초|
+
+<br>
+<br>
+<br>
+<br>
+
+
+## E. 실전 비동기 I/O 처리
+
+```scss
+[📥 요청] 
+    │
+    ▼
+[⚡ 이벤트 루프(Event Loop)]
+    │
+    ├──▶ 🟢 [Ready Queue]  ──▶ 실행
+    │                         │
+    │                         ▼
+    │                    (await 만나면)
+    │                         │
+    └───────────────▶ 🔵 [Waiting Queue]
+                              │
+                       (I/O 완료 알림)
+                              │
+               ◀──────────────┘
+    │
+    ▼
+[✅ 완료 처리 → 응답 반환]
+```
+* 📥 요청: 클라이언트에서 API 요청 도착
+* ⚡ 이벤트 루프: 요청을 Ready Queue에 등록 → 태스크 스케줄링 시작
+* 🟢 Ready Queue: 실행 가능한 Task가 대기 중
+> * CPU가 놀고 있으면 바로 처리
+* (await): 외부 I/O(예: DB, API 호출) 만나면 제어권 반환
+* 🔵 Waiting Queue: 외부 이벤트(I/O 완료) 대기 중인 Task 저장
+> * 외부 이벤트 발생 시 Ready Queue로 복귀
+* [✅ 완료 처리]: Task 종료 후 결과 반환
+
+<br>
+
+* 외부 API 호출
+> `httpx.AsyncClient` (세션 재사용)
+* DB 접근
+> `SQLAlchemy async` 엔진 or `Tortoise ORM`
+* 파일 I/O
+> `aiofiles`
+* CPU 연산 → 반드시 멀티프로세싱 고려 (`async` 무용지물)
+> `ProcessPoolExecutor`
+
+<br>
+<br>
+
+### E-1. 외부 API 비동기 호출 (httpx)
+* `httpx`는 `requests`와 유사한 API를 제공하는 현대적인 비동기 HTTP 클라이언트입니다.
+* `AsyncClient`를 사용하면 외부 API 호출 시 이벤트 루프를 차단하지 않습니다.
+
+```python
+import httpx
+from fastapi import FastAPI
+
+app = FastAPI()
+
+# 애플리케이션 레벨에서 클라이언트를 재사용하는 것이 효율적
+client = httpx.AsyncClient()
+
+@app.get("/call-api")
+async def call_api():
+    # 외부 API 호출 (논블로킹)
+    response = await client.get("https://jsonplaceholder.typicode.com/todos/1")
+    
+    # 응답이 올 때까지 다른 요청 처리 가능
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {"error": "API request failed"}
+
+# 서버 종료 시 클라이언트 세션 정리
+@app.on_event("shutdown")
+async def shutdown_event():
+    await client.aclose()
+
+```
+
+<br>
+
+### E-2. 비동기 데이터베이스 처리 (SQLAlchemy)
+* `SQLAlchemy 1.4+`부터 비동기 지원이 내장되었습니다.
+* `create_async_engine`과 `AsyncSession`을 사용하여 DB와 통신합니다.
+
+```python
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from fastapi import FastAPI, Depends
+# from . import models # 실제 사용 시 SQLAlchemy 모델 import 필요
+
+DATABASE_URL = "postgresql+asyncpg://user:password@host:port/db"
+
+# 비동기 엔진 및 세션 생성
+engine = create_async_engine(DATABASE_URL)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+app = FastAPI()
+
+# 의존성 주입으로 비동기 세션 관리
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+
+@app.get("/users/{user_id}")
+async def read_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    # DB 쿼리 (논블로킹)
+    # 실제 사용 예: user = await db.get(models.User, user_id)
+    # return user
+    return {"message": f"User {user_id} data from async DB"}
+```
+
+<br>
+
+### E-3. 비동기 파일 처리 (aiofiles)
+* `aiofiles`는 표준 파일 I/O 함수를 비동기적으로 사용할 수 있게 해줍니다.
+* 대용량 파일 처리 시 이벤트 루프 차단을 막아줍니다.
+
+```python
+import aiofiles
+from fastapi import FastAPI, UploadFile, File
+
+app = FastAPI()
+
+@app.post("/upload")
+async def create_upload_file(file: UploadFile = File(...)):
+    # 파일을 비동기적으로 쓰기 (논블로킹)
+    async with aiofiles.open(file.filename, "wb") as out_file:
+        content = await file.read()  # UploadFile의 read는 비동기
+        await out_file.write(content)
+    
+    return {"filename": file.filename, "message": "File uploaded successfully"}
+
+@app.get("/read/{filename}")
+async def read_file_content(filename: str):
+    # 파일을 비동기적으로 읽기 (논블로킹)
+    try:
+        async with aiofiles.open(filename, "r") as in_file:
+            content = await in_file.read()
+        return {"content": content}
+    except FileNotFoundError:
+        return {"error": "File not found"}
+```
+
+<br>
+
+### E-4. 여러 비동기 작업을 동시에 실행하기 (asyncio.gather)
+* 여러 개의 비동기 I/O 작업을 동시에 실행하고 모든 결과를 한 번에 받고 싶을 때 `asyncio.gather`를 사용합니다.
+* 예를 들어, 여러 외부 API를 동시에 호출하거나, 여러 파일을 동시에 읽어오는 경우에 유용합니다.
+
+```python
+import asyncio
+import httpx
+from fastapi import FastAPI
+
+app = FastAPI()
+client = httpx.AsyncClient()
+
+async def fetch_url(url: str):
+    """지정된 URL에서 데이터를 가져오는 코루틴"""
+    print(f"Fetching {url}...")
+    response = await client.get(url)
+    print(f"Finished fetching {url}")
+    return response.json()
+
+@app.get("/gather-tasks")
+async def gather_tasks():
+    # 동시에 호출할 URL 목록
+    urls = [
+        "https://jsonplaceholder.typicode.com/todos/1",
+        "https://jsonplaceholder.typicode.com/todos/2",
+        "https://jsonplaceholder.typicode.com/todos/3",
+    ]
+
+    # 각 URL에 대해 fetch_url 코루틴을 생성
+    tasks = [fetch_url(url) for url in urls]
+    
+    # asyncio.gather를 사용하여 모든 작업을 동시에 실행하고 결과를 기다림
+    results = await asyncio.gather(*tasks)
+    
+    return {"results": results}
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await client.aclose()
+```
+
+<br>
+<br>
+<br>
+<br>
+
+## F. Queue
+* Queue(큐) = 데이터를 순서대로 넣었다가(FIFO) 꺼내는 자료구조
+> * First In, First Out(FIFO)
+> * → 먼저 들어간 데이터가 먼저 나옴
+
+<br>
+
+#### 비유: 줄 서기 시스템
+
+| 상황| 설명|
+| --- | --- |
+| 커피숍 주문 대기 줄 | 먼저 온 고객부터 순서대로 처리|
+| `enqueue`   | 주문을 줄 끝에 추가 ("줄 서기") |
+| `dequeue`   | 맨 앞 고객을 꺼내서 주문 처리|
+
+<br>
+<br>
+
+### F-1. 큐의 기본 동작
+
+| 연산| 설명| 예시|
+| --- | --- | --- |
+| `enqueue(x)`| 데이터 x를 큐의 끝에 추가| `enqueue("고객 A")`|
+| `dequeue()`| 큐의 맨 앞 데이터를 꺼냄| `dequeue()` → "고객 A" 반환 |
+| `peek()`| 맨 앞 데이터 확인 (꺼내지 않음) | "고객 A"|
+| `is_empty()`| 큐가 비었는지 확인| True / False|
+
+<br>
+
+```python
+from collections import deque
+
+queue = deque()          # 큐 생성
+
+# 데이터 추가
+queue.append("고객 A")    # enqueue
+queue.append("고객 B")
+queue.append("고객 C")
+
+print(queue)  # deque(['고객 A', '고객 B', '고객 C'])
+
+# 데이터 꺼내기
+print(queue.popleft())   # dequeue → '고객 A'
+print(queue.popleft())   # dequeue → '고객 B'
+
+print(queue)  # deque(['고객 C'])
+
+```
+
+<br>
+
+### F-2. asyncio Queue: 비동기 Producer-Consumer
+
+* asyncio.Queue는 비동기 환경 최적화
+
+* 내부적으로 Lock이 걸리지 않아서 단일 스레드 내 컨텍스트 스위칭에 유리
+* `q.put()`와 `q.get()`은 모두 awaitable → I/O 대기 없이 깔끔
+```md
+💡 asyncio.Queue 특징
+- 비동기 환경에서도 안전하게 작동
+- await q.put() / await q.get() → CPU 점유 없이 I/O 대기
+```
+
+
+```python
+import asyncio
+
+async def producer(q):
+    for i in range(3):
+        print(f"🍳 Task-{i} 준비 완료")
+        await q.put(f"Task-{i}")
+        await asyncio.sleep(1)  # 생산 속도 시뮬레이션
+
+async def consumer(q):
+    while True:
+        task = await q.get()
+        print(f"👨‍🍳 실행: {task}")
+        await asyncio.sleep(2)  # 소비 속도 시뮬레이션
+        q.task_done()
+
+async def main():
+    q = asyncio.Queue()
+    await asyncio.gather(producer(q), consumer(q))
+
+asyncio.run(main())
+```
+
+* 출력 예
+
+```arduino
+🍳 Task-0 준비 완료
+👨‍🍳 실행: Task-0
+🍳 Task-1 준비 완료
+🍳 Task-2 준비 완료
+👨‍🍳 실행: Task-1
+👨‍🍳 실행: Task-2
+```
+
+<br>
+<br>
+
+## F-3. 실전에서 Queue가 필요한 이유
+
+| 상황| 큐 사용 이유|
+| --- | --- |
+| 웹 서버 요청 처리| 요청 순서 보장 (FIFO)|
+| 작업(Task) 스케줄링| 먼저 등록된 작업부터 처리|
+| 이벤트 관리 (게임/서버 등) | 이벤트 발생 순서 유지|
+| 데이터 스트리밍 처리| 데이터 처리 순서 보장|
+
+
+<br>
+<br>
+
+## F-4. 이벤트 루프 내부의 Queue
+
+* 비동기 프로그래밍에서 큐는 이벤트 루프의 핵심 구성 요소입니다.
+> * 이벤트 루프가 할 일(Task)과 대기 중인 작업을 관리
+* 컨텍스트 스위칭 비용
+> * Ready Queue → Waiting Queue 이동은 비용 거의 없음
+* CPU 연산 집중 작업
+> * 큐에 넣어도 I/O 대기가 없으면 이벤트 루프의 의미 ↓
+> * 멀티프로세싱(ProcessPoolExecutor) 고려
+
+#### Ready Queue vs Waiting Queue
+
+| Queue 종류          | 설명                             | 비유                |
+| ----------------- | ------------------------------ | ----------------- |
+| **Ready Queue**   | 당장 실행 가능한 Task 대기 (CPU가 놀면 실행) | 🍳 주방에서 대기 중인 요리사 |
+| **Waiting Queue** | 외부 I/O 완료를 기다리는 Task 대기        | 🚚 재료 배송 기다리는 요리사 |
+
+```
+🟢 Ready Queue = 실행만 하면 되는 Task (CPU 바로 태움)
+🔵 Waiting Queue = 외부 알림(I/O) 필요해서 당장 못 돌림
+```
+
+<br>
+
+```text
+Ready Queue
+    │   (이벤트 루프 picks Task)
+    ▼
+Task 실행 중
+    │   (await 만나면)
+    ▼
+Waiting Queue
+    │   (I/O 완료 알림)
+이벤트 발생 시
+    │   
+    └─────> Ready Queue 재등록
+```
+
+<br>
+
+* 핵심 동작 요약
+> * 이벤트 루프는 Ready Queue에서 Task 꺼내 실행
+> * Task가 await 만나면 Waiting Queue로 이동
+> * I/O 이벤트 완료 시 Waiting → Ready로 재등록
+
+<br>
+
+```css
+[ Ready Queue ] ── 실행 중 ──► [ Waiting Queue ]
+  (Task B, C)                  (Task A: sleep)
+```
+
+<br>
+
+* 실무에서 이벤트 루프의 Ready/Waiting 관리 방식이 어떻게 쓰이는지
+
+| 실무 상황| 설명|
+| --- | --- |
+| 웹 서버(Uvicorn, FastAPI)| 요청 핸들러가 I/O 대기하면 다른 요청 처리 가능|
+| 크롤러(AIOHTTP)| 수백 개 URL 요청 중 대기 중인 것 처리 (대량 처리 가능) |
+| 메시지 큐(Producer-Consumer) | Kafka 등 외부 시스템과 비동기 연동|
+
+<br>
+<br>
+
+## F-5. 큐와 이벤트 루프 핵심 요약
+
+| 항목| 설명|
+| --- | --- |
+| 🟢 **Ready Queue**| 즉시 실행 가능한 Task 대기열 (CPU가 놀면 여기서 꺼냄)|
+| 🔵 **Waiting Queue** | 외부 이벤트 대기 Task 대기열 (I/O 완료 신호 필요)|
+| 🔁 **FIFO 원칙**| 등록된 순서대로 실행|
+| 🚀 **비동기 효율**| 대기 시간에 다른 Task 실행 → CPU 활용 극대화|
+
+<br>
+<br>
+<br>
+<br>
+
+## G. 총정리 및 다음 학습 제안
+
+<br>
+<br>
+
+### G-1. 총정리
+* **비동기 프로그래밍**은 I/O 대기 시간을 활용해 단일 스레드에서 높은 동시성을 달성하는 패러다임입니다.
+* **코루틴**과 **이벤트 루프**가 핵심이며, `async`/`await` 키워드로 제어권을 양보하고 받아옵니다.
+* **FastAPI**는 이러한 비동기 특성을 극대화하여 빠르고 효율적인 웹 애플리케이션을 만들 수 있게 해줍니다.
+
+<br>
+<br>
+
+### G-2. 핵심 원칙
+| 상황 | 처리 방식 | 설명 |
+| --- | --- | --- |
+| **I/O 바운드 작업** | `async def` | 네트워크 통신, DB 조회, 파일 읽기/쓰기 등 대기 시간이 긴 작업에 사용합니다. |
+| **CPU 바운드 작업** | `def` + `ProcessPoolExecutor` | 복잡한 계산, 데이터 처리 등 CPU를 많이 사용하는 작업은 별도 프로세스에서 실행하여 이벤트 루프 차단을 막습니다. |
+
+* FastAPI는 동기 함수도 ThreadPoolExecutor로 실행
+> * → 작은 동기 작업은 괜찮지만, 긴 CPU 연산은 반드시 프로세스 분리!
+
+<br>
+<br>
+
+### G-3. 다음 학습 제안
+* **심화 `asyncio` 기능**:
+  * `asyncio.Semaphore`: 동시 실행 작업 수를 제어하여 시스템 과부하를 방지합니다.
+  * `asyncio.to_thread`: 동기 함수를 안전하게 비동기 코드에서 실행할 수 있게 해줍니다. (Python 3.9+)
+  * `asyncio.timeout`: 비동기 작업에 타임아웃을 설정하여 무한정 기다리는 것을 방지합니다. (Python 3.11+)
+* **비동기 테스트**:
+  * `pytest-asyncio`: `pytest`에서 비동기 코드를 쉽게 테스트할 수 있도록 지원합니다.
+* **실시간 통신**:
+  * **WebSocket**: FastAPI의 WebSocket 지원을 사용하여 실시간 채팅, 알림 등 양방향 통신 기능을 구현해 보세요.
+* **구조적 동시성 (Structured Concurrency)**:
+  * **AnyIO** / **Trio**: 기존 `asyncio`보다 더 안전하고 예측 가능한 동시성 코드를 작성할 수 있게 도와주는 라이브러리입니다. FastAPI 0.90.0부터 AnyIO를 내부적으로 사용하여 호환성이 좋습니다.
+
+<br>
+<br>
+
+### G-4. 비동기 + CPU 병렬 처리 전략 비교
+
+| 작업 유형| 전략| 설명|
+| --- | --- | --- |
+| **I/O 바운드**| `asyncio`| 단일 스레드 + 이벤트 루프 → 네트워크/DB 요청 등 대기 시간 활용에 최적화|
+| **짧은 CPU 작업** | `ThreadPoolExecutor`| 블로킹 동기 함수를 백그라운드 스레드에서 실행 → 이벤트 루프 차단 방지 (컨텍스트 스위칭 비용 약간 발생)|
+| **긴 CPU 연산**  | `ProcessPoolExecutor`| CPU 집약 작업은 별도 프로세스에서 실행 → GIL(Global Interpreter Lock) 해제, 진정한 병렬 처리 가능 |
+| **혼합 작업**| `asyncio + ProcessPool` | I/O는 `asyncio`, CPU는 `ProcessPool` 조합 → 대용량 데이터 처리 및 외부 API 혼합 상황에 유리|
+
+<br>
+
+* 실전 코드 예시 (ProcessPoolExecutor 사용)
+```python
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
+
+def heavy_cpu_task(x):
+    # CPU 집약적인 계산 예시
+    return sum(i * i for i in range(x))
+
+async def main():
+    loop = asyncio.get_running_loop()
+    with ProcessPoolExecutor() as pool:
+        result = await loop.run_in_executor(pool, heavy_cpu_task, 10**7)
+        print(f"✅ CPU 연산 결과: {result}")
+
+asyncio.run(main())
+```
